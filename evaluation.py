@@ -29,7 +29,7 @@ def Evaluate_Model(model, X_test, y_test, is_binary_classifier=False):
     print()
 
 
-def Evaluate_Model_DDos_Attack(model, except_attack):
+def Evaluate_Model_DDos_Attack(model, except_attack, scaler):
 
     # Process data
     if "index" in except_attack.columns:
@@ -38,14 +38,23 @@ def Evaluate_Model_DDos_Attack(model, except_attack):
     y_ddos = except_attack[' Label'].copy()
     X_ddos = except_attack.drop([' Label'],axis=1)
 
-    # Scale numerical features to have zero mean and unit variance  
-    scaler = StandardScaler()
-    X_ddos = scaler.fit_transform(X_ddos.select_dtypes(include=['float32','float16','int32','int16','int8']))
 
     # Predict
-    y_pred =  model.predict(X_ddos)
-    y_pred = (y_pred > 0.5)
+    y_pred = []
 
+    for i in range(len(X_ddos)):
+        X = X_ddos.loc[i, :]
+        X = np.expand_dims(X, axis=0)
+        X = scaler.transform(X)
+
+        value_predict = model.predict(X)
+        value_predict = 1.0 if value_predict > 0.5 else 0.0
+
+        y_pred.append(value_predict)
+
+    y_pred = np.array(y_pred)
+
+    # Calucalate accuracy
     accuracy = metrics.accuracy_score(y_ddos, y_pred)
     confusion_matrix = metrics.confusion_matrix(y_ddos, y_pred)
     classification = metrics.classification_report(y_ddos, y_pred)

@@ -1,12 +1,7 @@
 import sys
 sys.dont_write_bytecode = True
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 
 import pandas as pd
-import tensorflow as tf
-gpus = tf.config.list_physical_devices('GPU')
-tf.config.set_visible_devices(gpus[1], 'GPU')
 
 from process_data import *
 from model import *
@@ -14,14 +9,9 @@ from evaluation import *
 
 # --------------- Hyper parameter ---------------------
 N_features = 12
-N_labels = 1
-
-BATCH_SIZE = 128
-NUM_EPOCHS = 100
 
 is_binary_classifier = True
 except_attack_type = None
-
 # -----------------------------------------------------
 
 def main():
@@ -44,18 +34,26 @@ def main():
     print("X_train: {}".format(X_train.shape))
     print("Y_train: {}".format(Y_train.shape))
     print('----------------------------------------\n')
+    
+    model = Define_MLP()
+    model.fit(X_train, Y_train)
 
+    # Evaluation
+    Y_pred =  model.predict(X_test)
 
-    model = Define_Attention_Model(N_features, N_labels)
-    # Define the EarlyStopping callback
-    early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    accuracy = metrics.accuracy_score(Y_test, Y_pred)
+    confusion_matrix = metrics.confusion_matrix(Y_test, Y_pred)
+    classification = metrics.classification_report(Y_test, Y_pred)
+    print()
+    print('============================== Model Evaluation ==============================')
+    print()
+    print ("Model Accuracy:" "\n", accuracy)
+    print()
+    print("Confusion matrix:" "\n", confusion_matrix)
+    print()
+    print("Classification report:" "\n", classification) 
+    print()
 
-    model.fit(X_train, Y_train, epochs=NUM_EPOCHS, batch_size=BATCH_SIZE,\
-            validation_data=(X_test, Y_test), callbacks=[early_stopping])
-
-    # save_model(model, 'my_model.h5')
-
-    Evaluate_Model(model, X_test, Y_test, is_binary_classifier=True)
 
 
 main()

@@ -3,7 +3,10 @@ from process_data import *
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neural_network import MLPClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
 
 import tensorflow as tf
 from tensorflow import keras
@@ -20,10 +23,9 @@ def Define_Attention_Model(N_features, N_labels):
     inputs = Input(shape=(N_features,))
 
     # define attention layer
-    attention = Dense(N_features, activation='tanh')(inputs)
-    attention = Flatten()(attention)
-    attention = Activation('softmax')(attention)
-    attention = RepeatVector(N_features)(attention)
+    attention = Dense(N_features, activation='relu')(inputs)
+    attention = Dense(N_features, activation='softmax')(attention)
+    # attention = RepeatVector(N_features)(attention)
 
     # apply attention to inputs
     attention_output = Dot(axes=1)([inputs, attention])
@@ -32,8 +34,11 @@ def Define_Attention_Model(N_features, N_labels):
     # concatenate attention output with inputs
     merged = Concatenate()([attention_output, inputs])
 
+    # MLP
+    mlp = Dense(N_features, activation='relu')(merged)
+
     # define output layer
-    output = Dense(N_labels, activation='sigmoid')(merged)
+    output = Dense(N_labels, activation='sigmoid')(mlp)
 
     # compile model
     model = Model(inputs=[inputs], outputs=output)
@@ -47,3 +52,20 @@ def Define_Attention_Model(N_features, N_labels):
 def Define_Random_Forest_Model(n_estimator=50, max_depth=50):
     RF_Classifier = RandomForestClassifier(n_estimators=n_estimator, max_depth=max_depth)
     return RF_Classifier
+
+
+def Define_Decision_Tree(max_depth=10):
+    tree_clf = DecisionTreeClassifier(max_depth=max_depth)
+    return tree_clf
+
+def Define_Logistic_Regression():
+    lr = LogisticRegression()
+    return lr
+
+def Define_KNN(num_neighbors=5):
+    knn = KNeighborsClassifier(n_neighbors=num_neighbors)
+    return knn
+
+def Define_MLP(hidden_size=(32, 32), max_iter=100):
+    mlp = MLPClassifier(hidden_layer_sizes=hidden_size, max_iter=max_iter)
+    return mlp

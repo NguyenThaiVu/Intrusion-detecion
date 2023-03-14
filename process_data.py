@@ -14,6 +14,7 @@ from imblearn.under_sampling import RandomUnderSampler
 
 
 def Remove_INF_and_NaN(df):
+
     numerical_cols = df.select_dtypes(include=['number']).columns
     for column_name in numerical_cols:
         df = df[~np.isinf(df[column_name])]
@@ -57,56 +58,52 @@ def Process_Label(data, is_binary_classifier=False, except_attack_type=None):
         data[' Label'] = data[' Label'].astype("category").cat.codes
     else:
         if except_attack_type == None:
-            data[' Label'] = data[' Label'].apply(lambda x: 0 if x == 'BENIGN' else 1)
+            data[' Label'] = data[' Label'].apply(lambda x: '0' if x == 'BENIGN' else '1')
+            data[' Label'] = data[' Label'].astype(np.float32)
             return data
         else:
-
             # ['BENIGN' 'DDoS' 'PortScan' 'Bot' 'Infiltration' 'Web Attack � Brute Force' 
             # 'Web Attack � XSS' 'Web Attack � Sql Injection']
+            if "index" in data.columns: data = data.drop(['index'],axis=1)
             print(Counter(data[' Label']))
+            print("Dataframe shape data: {}".format(data.shape))
 
             # Extract just one type of attack
             except_attack = data[data[' Label'] == except_attack_type]
-            except_attack = except_attack.reset_index(drop=False) 
+            except_attack = except_attack.reset_index(drop=False)
             except_attack[' Label'] = except_attack[' Label'].apply(lambda x: '1' if x == except_attack_type else '0')
             except_attack[' Label'] = except_attack[' Label'].astype(np.float32)
+            if "index" in except_attack.columns: except_attack = except_attack.drop(['index'],axis=1)
+
+            print("Dataframe shape except_attack: {}".format(except_attack.shape))
+
 
             # Get other attack
-            data = data[data[' Label'] != except_attack_type]
+            # data = data[data[' Label'] != except_attack_type]
             data = data.reset_index(drop=False)
             data[' Label'] = data[' Label'].apply(lambda x: '0' if x == 'BENIGN' else '1')
             data[' Label'] = data[' Label'].astype(np.float32)
+            if "index" in data.columns: data = data.drop(['index'],axis=1)
+
+            print("Dataframe shape remain data: {}".format(data.shape))
 
             return (data, except_attack)
     
 
 
-def Handle_ImBalance(X_train, Y_train, list_feature_names):
+def Handle_ImBalance(X_train, Y_train):
 
-    df = pd.DataFrame(X_train, columns=list_feature_names)
-    df[' Label'] = np.array(Y_train)
+    print("Before sampling: ", Counter(Y_train))
 
-    minor = pd.DataFrame(df[(df[' Label']!=0) & (df[' Label']!=2)])
-    major = pd.DataFrame(df[(df[' Label']==0) | (df[' Label']==2)])
+    # Undersample the majority class
+    rus = RandomUnderSampler(sampling_strategy=0.5, random_state=42)
+    X_train, Y_train = rus.fit_resample(X_train, Y_train)
 
-    # Upsampling minor classes
-    y_rus_ =  minor[' Label']
-    X_rus_ =  minor.drop([' Label'],axis=1)
-    strategy = {1: 10000, 3: 10000, 4: 10000, 5: 10000, 6: 10000, 7: 10000}
-    sm = SMOTE(sampling_strategy=strategy)
-    X_sm, y_sm = sm.fit_resample(X_rus_, y_rus_)
-    X_min,y_min = X_sm, y_sm 
+    # Oversample the minority class
+    ros = RandomOverSampler(sampling_strategy='minority', random_state=42)
+    X_train, Y_train = ros.fit_resample(X_train, Y_train)
 
-    # Undersampling major classes
-    y_rus_ =  major[' Label']
-    X_rus_ =  major.drop([' Label'],axis=1)
-    strategy = {0:10000, 2:10000}
-    tom = RandomUnderSampler(sampling_strategy=strategy)
-    X_tom, y_tom = tom.fit_resample(X_rus_, y_rus_)
-
-    # Get final result
-    X_maj,y_maj = X_tom, y_tom
-    X_train, Y_train = pd.concat([X_maj,X_min]), pd.concat([y_maj,y_min])
+    print("After sampling: ", Counter(Y_train))
 
     return (X_train, Y_train)
 
@@ -138,7 +135,7 @@ def Prepare_Data_Multiple_Classes(data):
     return (X_train, X_test, Y_train, Y_test)
 
 
-def Prepare_Data_Binary(data):
+def Prepare_Data_Binary(data, is_handle_imbalance=False):
     if "index" in data.columns:
         data = data.drop(['index'],axis=1)
 
@@ -147,13 +144,18 @@ def Prepare_Data_Binary(data):
     list_feature_names = X.columns
 
     #  Train test split
-    X_train,X_test,Y_train,Y_test = train_test_split(X, y,train_size=0.70, random_state=2)
+    X_train, X_test, Y_train, Y_test = train_test_split(X, y, train_size=0.70, random_state=42)
+
+    # 
+    if is_handle_imbalance == True:
+        (X_train, Y_train) = Handle_ImBalance(X_train, Y_train)
 
     # Scale numerical features to have zero mean and unit variance  
     scaler = StandardScaler()
-    cols = X_train.select_dtypes(include=['float32','float16','int32','int16','int8']).columns
-    X_train = scaler.fit_transform(X_train.select_dtypes(include=['float32','float16','int32','int16','int8']))
-    X_test = scaler.transform(X_test.select_dtypes(include=['float32','float16','int32','int16','int8']))
+    scaler.fit(X_train)
 
-    return (X_train, X_test, Y_train, Y_test)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    return (X_train, X_test, Y_train, Y_test, scaler)
 
