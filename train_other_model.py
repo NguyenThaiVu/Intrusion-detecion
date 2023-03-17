@@ -8,7 +8,8 @@ from model import *
 from evaluation import *
 
 # --------------- Hyper parameter ---------------------
-N_features = 12
+N_features = 78
+N_labels = 1
 
 is_binary_classifier = True
 except_attack_type = None
@@ -35,7 +36,7 @@ def main():
     print("Y_train: {}".format(Y_train.shape))
     print('----------------------------------------\n')
     
-    model = Define_MLP()
+    model = Define_Adaboost()
     model.fit(X_train, Y_train)
 
     # Evaluation
